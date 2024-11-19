@@ -54,8 +54,8 @@ class ProposedStockEntry(StockController):
 			stock_entry.custom_proposed_stock_entry = self.name
 			stock_entry.purpose = "Material Transfer for Manufacture"
 			stock_entry.stock_entry_type = "Material Transfer for Manufacture"
-			stock_entry.process_order = self.custom_job_offer
-			stock_entry.custom_job_offer = self.batch_order
+			stock_entry.process_order = self.batch_order
+			stock_entry.custom_job_offer = self.custom_job_offer
 			stock_entry.from_warehouse = po.src_warehouse
 			stock_entry.to_warehouse = po.fg_warehouse
 			for se in self.items:
