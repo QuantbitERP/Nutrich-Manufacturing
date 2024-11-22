@@ -44,6 +44,7 @@ class FinishedGoodError(frappe.ValidationError):
 
 class ProposedStockEntry(StockController):
 	def on_submit(self):
+		tot_op = 0
 		po = frappe.get_doc("Process Order", self.batch_order)
 		if self.stock_entry_type == "Material Transfer for Manufacture":
 			stock_entry = frappe.new_doc("Stock Entry")
@@ -81,24 +82,21 @@ class ProposedStockEntry(StockController):
 					'amount': op.amount,
 					'description': 'None'
 				})
+				tot_op += op.amount
 			
 			stock_entry.cost_center = self.cost_center
-			stock_entry.total_additional_costs = sum(tot_op.amount for tot_op in self.additional_costs)
+			stock_entry.total_additional_costs = tot_op
 			stock_entry.insert()
 			stock_entry.submit()
 
 		elif self.stock_entry_type == "Manufacture":
 			tot_basic_amt, tot_in_qty = 0, 0
-			finished_items = [i for i in self.items if i.is_finished_item]
-			if not all(i.cost_center for i in finished_items):
+			if not all(i.cost_center for i in self.items):
 				frappe.throw("Cost Center is mandatory for all finished items.")
-			
-			tot_basic_amt = sum(i.basic_amount for i in finished_items)
 
-			raw_items = [i for i in self.items if not i.is_finished_item and not i.is_scrap_item]
-			if not all(i.cost_center for i in raw_items):
-				frappe.throw("Cost Center is mandatory for all raw materials.")
-			
+			finished_items = [i for i in self.get('items', filters={'is_finished_item': 1})]
+			tot_basic_amt = sum(i.basic_amount for i in finished_items)
+			raw_items = [i for i in self.get('items', filters={'is_finished_item': 0, 'is_scrap_item': 0})]
 			tot_in_qty = sum(i.qty for i in raw_items)
 			for finished_item in finished_items:
 				if (finished_item.basic_amount / tot_basic_amt) * tot_in_qty > 0:
@@ -110,7 +108,6 @@ class ProposedStockEntry(StockController):
 					stock_entry.custom_proposed_stock_entry = self.name
 					stock_entry.stock_entry_type = "Manufacture"
 					stock_entry.purpose = "Manufacture"
-					stock_entry.process_order = self.batch_order
 					stock_entry.process_order = self.batch_order
 
 					for raw_item in raw_items:
@@ -149,13 +146,15 @@ class ProposedStockEntry(StockController):
 							})
 
 					for cost in self.additional_costs:
+						op_amount = cost.amount * (finished_item.basic_amount / tot_basic_amt)
 						stock_entry.append("additional_costs", {
 							"expense_account": cost.expense_account,
 							"description": cost.description,
-							"amount": cost.amount * (finished_item.basic_amount / tot_basic_amt),
+							"amount": op_amount,
 						})
+						tot_op += op_amount
 					stock_entry.cost_center = self.cost_center
-					stock_entry.total_additional_costs = sum(tot_op.amount for tot_op in stock_entry.additional_costs)
+					stock_entry.total_additional_costs = tot_op
 
 					stock_entry.insert()
 					stock_entry.submit()
