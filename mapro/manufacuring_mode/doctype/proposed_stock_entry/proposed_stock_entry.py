@@ -53,10 +53,11 @@ class ProposedStockEntry(StockController):
 			stock_entry.naming_series = '-'.join(self.naming_series.split('-')[1:])
 			stock_entry.custom_proposed_stock_entry = self.name
 			stock_entry.stock_entry_type = "Material Transfer for Manufacture"
-			stock_entry.process_order = self.custom_job_offer
-			stock_entry.custom_job_offer = self.batch_order
-			stock_entry.from_warehouse = po.src_warehouse
-			stock_entry.to_warehouse = po.fg_warehouse
+			stock_entry.purpose = "Material Transfer for Manufacture"
+			stock_entry.process_order = self.batch_order
+			stock_entry.custom_job_offer = self.custom_job_offer
+			stock_entry.from_warehouse = self.from_warehouse
+			stock_entry.to_warehouse = self.to_warehouse
 
 			for se in self.items:
 				stock_entry.append("items", {
@@ -108,7 +109,9 @@ class ProposedStockEntry(StockController):
 					stock_entry.naming_series = '-'.join(self.naming_series.split('-')[1:])
 					stock_entry.custom_proposed_stock_entry = self.name
 					stock_entry.stock_entry_type = "Manufacture"
-					stock_entry.process_order = self.custom_job_offer
+					stock_entry.purpose = "Manufacture"
+					stock_entry.process_order = self.batch_order
+					stock_entry.process_order = self.batch_order
 
 					for raw_item in raw_items:
 						stock_entry.append("items", {
@@ -139,6 +142,7 @@ class ProposedStockEntry(StockController):
 								"qty": qty_to_transfer,
 								"uom": 'KGS',
 								"t_warehouse": scrap_item.t_warehouse,
+								"batch_no": scrap_item.batch_no,
 								"is_scrap_item": True,
 								'allow_zero_valuation_rate': True,
 								"cost_center": scrap_item.cost_center
@@ -150,7 +154,6 @@ class ProposedStockEntry(StockController):
 							"description": cost.description,
 							"amount": cost.amount * (finished_item.basic_amount / tot_basic_amt),
 						})
-
 					stock_entry.cost_center = self.cost_center
 					stock_entry.total_additional_costs = sum(tot_op.amount for tot_op in stock_entry.additional_costs)
 
@@ -167,10 +170,10 @@ class ProposedStockEntry(StockController):
 	# 		stock_entry.naming_series = '-'.join(self.naming_series.split('-')[1:])
 	# 		stock_entry.custom_proposed_stock_entry = self.name
 	# 		stock_entry.stock_entry_type = "Material Transfer for Manufacture"
-	# 		stock_entry.process_order = self.custom_job_offer
-	# 		stock_entry.custom_job_offer = self.batch_order
-	# 		stock_entry.from_warehouse = po.src_warehouse
-	# 		stock_entry.to_warehouse = po.fg_warehouse
+	# 		stock_entry.process_order = self.batch_order
+	# 		stock_entry.custom_job_offer = self.custom_job_offer
+	# 		stock_entry.from_warehouse = self.from_warehouse
+	# 		stock_entry.to_warehouse = self.to_warehouse
 	# 		for se in self.items:
 	# 			stock_entry.append("items", {
 	# 				's_warehouse': se.s_warehouse,
@@ -228,7 +231,7 @@ class ProposedStockEntry(StockController):
 	# 				stock_entry.naming_series = '-'.join(self.naming_series.split('-')[1:])
 	# 				stock_entry.custom_proposed_stock_entry = self.name
 	# 				stock_entry.stock_entry_type = "Manufacture"
-	# 				stock_entry.process_order = self.custom_job_offer
+	# 				stock_entry.process_order = self.batch_order
 	# 				for in_q in self.get('items', filters={'is_finished_item': 0, 'is_scrap_item': 0}):
 	# 					stock_entry.append("items", {
 	# 						"item_code": in_q.item_code,
@@ -249,7 +252,7 @@ class ProposedStockEntry(StockController):
 	# 					"cost_center": d.cost_center
 	# 				})
 	# 				for sc in self.get('items', filters={'is_scrap_item': 1}):
-	# 					if ((d.basic_amount/tot_basic_amt) * sc.qty) > 0:
+	# 					if round(((d.basic_amount/tot_basic_amt) * sc.qty),3) > 0:
 	# 						stock_entry.append("items", {
 	# 							"item_code": sc.item_code,
 	# 							"qty": (d.basic_amount/tot_basic_amt) * sc.qty,
@@ -259,8 +262,6 @@ class ProposedStockEntry(StockController):
 	# 							'allow_zero_valuation_rate': True,
 	# 							"cost_center": sc.cost_center
 	# 						})
-	# 					else:
-	# 						frappe.throw(str((d.basic_amount/tot_basic_amt) * sc.qty))
 
 	# 				for k in self.get("additional_costs"):
 	# 					stock_entry.append("additional_costs", {
