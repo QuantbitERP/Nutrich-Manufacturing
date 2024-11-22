@@ -43,7 +43,7 @@ class FinishedGoodError(frappe.ValidationError):
 	pass
 
 class ProposedStockEntry(StockController):
-	def on_submit(self):
+	def before_submit(self):
 		tot_op = 0
 		po = frappe.get_doc("Process Order", self.batch_order)
 		if self.stock_entry_type == "Material Transfer for Manufacture":
@@ -94,10 +94,12 @@ class ProposedStockEntry(StockController):
 			if not all(i.cost_center for i in self.items):
 				frappe.throw("Cost Center is mandatory for all finished items.")
 
-			finished_items = [i for i in self.get('items', filters={'is_finished_item': 1})]
-			tot_basic_amt = sum(i.basic_amount for i in finished_items)
-			raw_items = [i for i in self.get('items', filters={'is_finished_item': 0, 'is_scrap_item': 0})]
-			tot_in_qty = sum(i.qty for i in raw_items)
+			finished_items = self.get('items', filters={'is_finished_item': 1})
+			tot_basic_amts = frappe.db.get_value('Proposed Stock Entry Details', {'is_finished_item': 1, 'parent': self.name},'SUM(basic_amount)', as_dict=True)
+			tot_basic_amt = tot_basic_amts['SUM(`basic_amount`)'] if tot_basic_amts else 0
+			raw_items = self.get('items', filters={'is_finished_item': 0, 'is_scrap_item': 0})
+			tot_in_qtys = frappe.db.get_value('Proposed Stock Entry Details', {'is_finished_item': 0, 'is_scrap_item': 0, 'parent': self.name},'SUM(qty)', as_dict=True)
+			tot_in_qty = tot_in_qtys['SUM(`qty`)'] if tot_in_qtys else 0
 			for finished_item in finished_items:
 				if (finished_item.basic_amount / tot_basic_amt) * tot_in_qty > 0:
 					stock_entry = frappe.new_doc("Stock Entry")
@@ -130,7 +132,7 @@ class ProposedStockEntry(StockController):
 						"cost_center": finished_item.cost_center
 					})
 
-					scrap_items = [sc for sc in self.items if sc.is_scrap_item]
+					scrap_items = self.get('items', filters={'is_scrap_item': 1})
 					for scrap_item in scrap_items:
 						qty_to_transfer = round((finished_item.basic_amount / tot_basic_amt) * scrap_item.qty, 3)
 						if qty_to_transfer > 0:
